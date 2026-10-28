@@ -1,0 +1,79 @@
+/*
+ * [ข้อสอบ Mock Exam ข้อ 4] Publish ประตู (Ultrasonic + ปุ่มกด Push Button)
+ * - Topic: 68070141/door
+ * - เงื่อนไข: ถ้า >= 20 cm และกดปุ่ม ส่ง "On", กรณีอื่นส่ง "Off" (ตัว O พิมพ์ใหญ่!)
+ * - การต่อสาย:
+ *   1. Ultrasonic: VCC->5V, Trig->12 (หรือ 4), Echo->13 (หรือ 2), GND->GND
+ *   2. ปุ่มกด: ขาหนึ่งเข้า A2, อีกขาเข้า GND (ใช้ INPUT_PULLUP: กด = LOW)
+ */
+#include <WiFiS3.h>
+#include <MQTTClient.h>
+
+const char WIFI_SSID[]      = "68070141";
+const char WIFI_PASSWORD[]  = "nano9753";
+const char MQTT_BROKER[]    = "phycom.it.kmitl.ac.th";
+const int  MQTT_PORT        = 1883; // บอร์ดใช้ 1883 เสมอ!
+const char MQTT_CLIENT_ID[] = "UnoR4_68070141_Ex4";
+const char TOPIC_DOOR[]     = "68070141/door";
+
+const int trigPin   = 12; // ถ้าเสียบช่อง 4 ให้แก้เป็น 4
+const int echoPin   = 13; // ถ้าเสียบช่อง 2 ให้แก้เป็น 2
+const int buttonPin = A2;
+
+WiFiClient network;
+MQTTClient mqtt(256);
+unsigned long lastPublishTime = 0;
+
+long readDistanceCm() {
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+  digitalWrite(trigPin, HIGH);
+  delayMicroseconds(10);
+  digitalWrite(trigPin, LOW);
+
+  long pulseWidth = pulseIn(echoPin, HIGH, 30000);
+  if (pulseWidth == 0) return 999;
+  return pulseWidth / 29 / 2;
+}
+
+void connectToWiFiAndMQTT() {
+  if (WiFi.status() != WL_CONNECTED) {
+    Serial.print("Connecting WiFi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    while (WiFi.status() != WL_CONNECTED) { delay(500); Serial.print("."); }
+    Serial.println("\nWiFi Connected!");
+  }
+  if (!mqtt.connected()) {
+    Serial.print("Connecting MQTT...");
+    while (!mqtt.connect(MQTT_CLIENT_ID)) { delay(500); Serial.print("."); }
+    Serial.println("\nMQTT Connected!");
+  }
+}
+
+void setup() {
+  Serial.begin(9600);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
+  pinMode(buttonPin, INPUT_PULLUP);
+  mqtt.begin(MQTT_BROKER, MQTT_PORT, network);
+  connectToWiFiAndMQTT();
+}
+
+void loop() {
+  mqtt.loop();
+  if (!mqtt.connected()) connectToWiFiAndMQTT();
+
+  if (millis() - lastPublishTime >= 2000) {
+    lastPublishTime = millis();
+
+    long dist = readDistanceCm();
+    bool isPressed = (digitalRead(buttonPin) == LOW);
+
+    String payload = (dist >= 20 && isPressed) ? "On" : "Off";
+    mqtt.publish(TOPIC_DOOR, payload);
+
+    Serial.print("Dist: "); Serial.print(dist);
+    Serial.print(" cm | Button: "); Serial.print(isPressed ? "PRESSED" : "RELEASED");
+    Serial.println(" -> Published [68070141/door]: " + payload);
+  }
+}

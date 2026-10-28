@@ -1,21 +1,29 @@
+// ถ้าเสียบตาม Lab14 เดิมใช้ Trig=4, Echo=2 (ถ้าเสียบตามโพยรวมให้แก้เป็น Trig=12, Echo=13)
+const int trigPin = 4;
+const int echoPin = 2;
+
 void setup() {
   Serial.begin(9600);
-  pinMode(4, OUTPUT);  // 4
-  pinMode(2, INPUT);
+  pinMode(trigPin, OUTPUT);
+  pinMode(echoPin, INPUT);
 }
 
 void loop() {
-  digitalWrite(4, HIGH);
+  // 1. เคลียร์ขา Trig ให้เป็น LOW ก่อน 2 ไมโครวินาที
+  digitalWrite(trigPin, LOW);
+  delayMicroseconds(2);
+
+  // 2. ยิงคลื่นเสียงโดยสั่ง HIGH ค้างไว้ 10 ไมโครวินาที แล้วปิดเป็น LOW
+  digitalWrite(trigPin, HIGH);
   delayMicroseconds(10);
-  digitalWrite(4, LOW);
+  digitalWrite(trigPin, LOW);
 
-  int pulseWidth = pulseIn(2, HIGH);
-
-  digitalWrite(4, HIGH);
-  delayMicroseconds(10);  // เปิดสัญญาณค้างไว้ 10 ไมโครวินาที (สั้นมากๆ) เพื่อกระตุ้นเซ็นเซอร์
-  digitalWrite(4, LOW);   // ปิดสัญญาณ -> ทันทีที่ปิด เซ็นเซอร์จะยิงคลื่นเสียงความถี่สูงออกไป
+  // 3. อ่านเวลาที่คลื่นสะท้อนกลับมาที่ขา Echo (ใส่ timeout 30000 us กันค้าง)
+  long pulseWidth = pulseIn(echoPin, HIGH, 30000);
   long distance = pulseWidth / 29 / 2;
+
   Serial.print("Distance: ");
-  Serial.println(distance);  // พิมพ์ค่าระยะทาง (cm) ออกทางหน้าจอ Serial Monitor
-  delay(1000);
+  Serial.print(distance);
+  Serial.println(" cm");
+  delay(500);
 }
